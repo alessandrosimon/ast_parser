@@ -105,34 +105,53 @@ void println(const std::string& str)
     std::cout << str << std::endl;
 }
 
-const char* text = "5 + 2 - 2";
+const char* text = "5 + 2 * 2";
 
-std::unique_ptr<ExprAST> ParseTerm(const std::string& tok)
+std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
 {
-    return std::make_unique<NumberExprAST>(std::stoi(tok));
+    const auto number = tokens.consume();
+    return std::make_unique<NumberExprAST>(std::stoi(number));
 }
 
-// std::unique_ptr<ExprAST> ParseFactor(const std::string& tok)
-// {
 
-// }
-
-int main()
+std::unique_ptr<ExprAST> ParseTerm(Tokenizer& tokens)
 {
-    Tokenizer tokens(text);
+    std::unique_ptr<ExprAST> res;
+    res = ParseFactor(tokens);
+    while (tokens.peek() == "*" || tokens.peek() == "/")
+    {
+	// get operator token
+	auto op_tok = tokens.consume();
+	// parse next term
+	auto next = ParseFactor(tokens);
+
+	char op = 0;
+	if (op_tok == "*")
+	    op = '*';
+	else
+	    op = '/';
+
+	res = std::make_unique<BinaryExprAST>(op, std::move(res), std::move(next));
+    }
+    return res;
+    
+}   
+
+std::unique_ptr<ExprAST> ParseExpression(Tokenizer& tokens)
+{
     std::unique_ptr<ExprAST> res;
     while (!tokens.finished())
     {
-
-	res = ParseTerm(tokens.consume());
-
+	res = ParseTerm(tokens);
 	while (tokens.peek() == "+" || tokens.peek() == "-")
 	{
-	    auto tok = tokens.consume();
-	    auto next = ParseTerm(tokens.consume());
+	    // get operator token
+	    auto op_tok = tokens.consume();
+	    // parse next term
+	    auto next = ParseTerm(tokens);
 
 	    char op = 0;
-	    if (tok == "+")
+	    if (op_tok == "+")
 		op = '+';
 	    else
 		op = '-';
@@ -140,6 +159,13 @@ int main()
 	    res = std::make_unique<BinaryExprAST>(op, std::move(res), std::move(next));
 	}
     }
-    res->walk();
+    return res;
+}
+
+int main()
+{
+    Tokenizer tokens(text);
+    auto res = ParseExpression(tokens);
+    res->walk(); 
     return 0;
 }
