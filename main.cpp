@@ -36,7 +36,7 @@ public:
 	    pos++;
 	    return r;
 	}
-    std::string next()
+    std::string peek()
 	{
 	    return tokens[pos];
 	}
@@ -119,22 +119,17 @@ std::unique_ptr<ExprAST> ParseTerm(const std::string& tok)
 
 int main()
 {
-    
-    auto tokens = split(text, ' ');
-    int curr = 0;
+    Tokenizer tokens(text);
     std::unique_ptr<ExprAST> res;
-    while (curr != tokens.size())
+    while (!tokens.finished())
     {
 
-	res = ParseTerm(tokens[curr]);
-	curr++; // advance token
+	res = ParseTerm(tokens.consume());
 
-	while (tokens[curr] == "+" || tokens[curr] == "-")
+	while (tokens.peek() == "+" || tokens.peek() == "-")
 	{
-	    auto tok = tokens[curr]; // save op
-	    curr++;
-	    auto next = ParseTerm(tokens[curr]);
-	    curr++;
+	    auto tok = tokens.consume();
+	    auto next = ParseTerm(tokens.consume());
 
 	    char op = 0;
 	    if (tok == "+")
