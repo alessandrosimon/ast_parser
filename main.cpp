@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include <locale>
-
+#include <cmath>
 
 
 class Tokenizer
@@ -55,8 +54,9 @@ public:
 class ExprAST
 {
 public:
-    virtual ~ExprAST() {};
-    virtual void walk(){};
+    virtual ~ExprAST() {}
+    virtual void walk(){}
+    virtual double evaluate(double x){ return 0; }
 };
 
 
@@ -69,6 +69,19 @@ public:
 	{
 	    std::cout << value;
 	}
+    double evaluate(double x) { return value; }
+};
+
+class VariableExprAST : public ExprAST
+{
+    char c;
+public:
+    VariableExprAST(char c) : c{c}{}
+    void walk()
+	{
+	    std::cout << c;
+	}
+    double evaluate(double x) { return x; }
 };
 
 class BinaryExprAST : public ExprAST
@@ -88,19 +101,47 @@ public:
 	    RHS->walk();
 	    std::cout << ")";
 	}
+
+    double evaluate(double x)
+	{
+	    switch (Op)
+	    {
+	    case '+': return (LHS->evaluate(x) + RHS->evaluate(x));
+	    case '-': return (LHS->evaluate(x) - RHS->evaluate(x));
+	    case '*': return (LHS->evaluate(x) * RHS->evaluate(x));
+	    case '/': return (LHS->evaluate(x) / RHS->evaluate(x));
+	    case '^': return (std::pow(LHS->evaluate(x), RHS->evaluate(x)));
+	    }
+	    return 0;
+	}
 };
 
+std::unique_ptr<ExprAST> ParseAtom(Tokenizer&);
+std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
+{
+    auto ret = ParseAtom(tokens);
+    if (tokens.peek() == "^")
+    {
+	tokens.consume();
+	auto exponent = ParseFactor(tokens);
+	ret = std::make_unique<BinaryExprAST>('^', std::move(ret), std::move(exponent));
+    }
+    return ret;
+}
+
+// std::unique_ptr<ExprAST> ParseRadical(Tokenizer& tokens)
+// {
+// }
 
 std::unique_ptr<ExprAST> ParseExpression(Tokenizer&);
-
-std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
+std::unique_ptr<ExprAST> ParseAtom(Tokenizer& tokens)
 {
     // check for number
     if (std::isdigit(tokens.peek()[0]))
     {
 	const auto number = tokens.consume();
 	return std::make_unique<NumberExprAST>(std::stoi(number));
-    } else {
+    } else if (tokens.peek() == "(") {
 	auto openp = tokens.consume();
 	if (openp != "(")
 	    std::cout << "error: expected '(' but got " << openp << std::endl;
@@ -109,6 +150,12 @@ std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
 	if (closingp != ")")
 	    std::cout << "error: expected ')' but got " << closingp << std::endl;
 	return ret;
+    } else if (tokens.peek() == "x")
+    {
+	const char var = tokens.consume()[0];
+	return std::make_unique<VariableExprAST>(var);
+    } else {
+	return nullptr;
     }
 }
 
@@ -167,5 +214,9 @@ int main(int argc, char* argv[])
     Tokenizer tokens(input);
     auto res = ParseExpression(tokens);
     res->walk();
+    std::cout << std::endl << res->evaluate(1.0) << std::endl;
+    double x = 0;
+    for (; x<2.0; x+= 0.01)
+	res->evaluate(x);
     return 0;
 }
