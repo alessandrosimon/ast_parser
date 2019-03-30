@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <algorithm>
 #include <cmath>
 
 
@@ -20,6 +21,31 @@ class Tokenizer
 	    return tokens;
 	}
 
+    std::vector<std::string> split(const std::string& string)
+	{
+	    // get rid of whitespace
+	    std::string s = string;
+	    s.erase(std::remove(s.begin(), s.end(), ' '), s.end());
+	    
+	    std::vector<std::string> tokens;
+	    std::string token;
+	    std::string delimiters = "+-*/()^";
+	    std::size_t current;
+	    std::size_t next = -1;
+	    do
+	    {
+		current = next + 1;
+		next = s.find_first_of(delimiters, current);
+		token = s.substr(current, next-current);
+		if (token != "")
+		    tokens.push_back(token);
+		// push operator
+		tokens.push_back(std::string(1,s[next]));
+	    } while (next != std::string::npos);
+	    // delete last entry, which is invalid due to loop end
+	    tokens.pop_back();
+	    return tokens;
+	}
     const std::string input;
     std::vector<std::string> tokens;
     int pos;
@@ -27,7 +53,7 @@ class Tokenizer
 public:
     Tokenizer(const std::string& input) :input{input}
 	{
-	    tokens = split(input, ' ');
+	    tokens = split(input);
 	    pos = 0;
 	    end = tokens.size();
 	}
@@ -38,6 +64,8 @@ public:
 	    pos++;
 	    return r;
 	}
+
+    
     std::string peek()
 	{
 	    return tokens[pos];
@@ -70,6 +98,31 @@ public:
 	    std::cout << value;
 	}
     double evaluate(double x) { return value; }
+};
+
+class FunctionExprAST : public ExprAST
+{
+    std::unique_ptr<ExprAST> argument;
+    std::string function_name;
+public:
+    FunctionExprAST(const std::string& fname, std::unique_ptr<ExprAST> arg)
+	: function_name{fname}, argument{std::move(arg)}{}
+    void walk()
+	{
+	    std::cout << function_name << "(";
+	    argument->walk();
+	    std::cout << ")";
+	}
+
+    double evaluate(double x)
+	{
+	    if (function_name == "sin")
+	    {
+		return std::sin(argument->evaluate(x));
+	    } else {
+		return 0;
+	    }
+	}
 };
 
 class VariableExprAST : public ExprAST
@@ -119,6 +172,27 @@ public:
 std::unique_ptr<ExprAST> ParseAtom(Tokenizer&);
 std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
 {
+    // auto ret = ParseAtom(tokens);
+    // if (tokens.peek() == "^")
+    // {
+    // 	tokens.consume();
+    // 	auto exponent = ParseFactor(tokens);
+    // 	ret = std::make_unique<BinaryExprAST>('^', std::move(ret), std::move(exponent));
+    // } else if (tokens.peek() == "sin")
+    // {
+    // 	// remember 'sin' is a whole token
+    // 	tokens.consume();
+    // 	auto arg = ParseFactor(tokens);
+    // 	ret = std::make_unique<BinaryExprAST>('s', std::move(ret), std::move(arg));
+    // }
+
+    if (tokens.peek() == "sin")
+    {
+	tokens.consume();
+	auto arg = ParseFactor(tokens);
+	return std::make_unique<FunctionExprAST>("sin", std::move(arg));
+    }
+    
     auto ret = ParseAtom(tokens);
     if (tokens.peek() == "^")
     {
@@ -126,6 +200,7 @@ std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
 	auto exponent = ParseFactor(tokens);
 	ret = std::make_unique<BinaryExprAST>('^', std::move(ret), std::move(exponent));
     }
+    
     return ret;
 }
 
@@ -158,7 +233,6 @@ std::unique_ptr<ExprAST> ParseAtom(Tokenizer& tokens)
 	return nullptr;
     }
 }
-
 
 std::unique_ptr<ExprAST> ParseTerm(Tokenizer& tokens)
 {
