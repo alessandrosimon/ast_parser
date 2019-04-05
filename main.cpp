@@ -34,13 +34,15 @@ class Tokenizer
 	    std::size_t next = -1;
 	    do
 	    {
-		current = next + 1;
-		next = s.find_first_of(delimiters, current);
-		token = s.substr(current, next-current);
-		if (token != "")
-		    tokens.push_back(token);
-		// push operator
-		tokens.push_back(std::string(1,s[next]));
+			current = next + 1;
+			next = s.find_first_of(delimiters, current);
+			token = s.substr(current, next-current);
+			
+			if (token != "")
+			    tokens.push_back(token);
+			
+			// push operator
+			tokens.push_back(std::string(1,s[next]));
 	    } while (next != std::string::npos);
 	    // delete last entry, which is invalid due to loop end
 	    tokens.pop_back();
@@ -65,6 +67,16 @@ public:
 	    return r;
 	}
 
+    bool expect(const std::string& str)
+	{
+	    const auto ret = this->consume();
+	    if (ret != str)
+	    {
+		std::cout << "Expected " << str << " but got " << ret << std::endl;
+		return false;
+	    }
+	    return true;
+	}
     
     std::string peek()
 	{
@@ -170,43 +182,19 @@ public:
 };
 
 std::unique_ptr<ExprAST> ParseAtom(Tokenizer&);
+std::unique_ptr<ExprAST> ParseExpression(Tokenizer&);
 std::unique_ptr<ExprAST> ParseFactor(Tokenizer& tokens)
 {
-    // auto ret = ParseAtom(tokens);
-    // if (tokens.peek() == "^")
-    // {
-    // 	tokens.consume();
-    // 	auto exponent = ParseFactor(tokens);
-    // 	ret = std::make_unique<BinaryExprAST>('^', std::move(ret), std::move(exponent));
-    // } else if (tokens.peek() == "sin")
-    // {
-    // 	// remember 'sin' is a whole token
-    // 	tokens.consume();
-    // 	auto arg = ParseFactor(tokens);
-    // 	ret = std::make_unique<BinaryExprAST>('s', std::move(ret), std::move(arg));
-    // }
-
-    if (tokens.peek() == "sin")
-    {
-	tokens.consume();
-	auto arg = ParseFactor(tokens);
-	return std::make_unique<FunctionExprAST>("sin", std::move(arg));
-    }
-    
-    auto ret = ParseAtom(tokens);
+	auto ret = ParseAtom(tokens);
     if (tokens.peek() == "^")
     {
-	tokens.consume();
-	auto exponent = ParseFactor(tokens);
-	ret = std::make_unique<BinaryExprAST>('^', std::move(ret), std::move(exponent));
-    }
-    
-    return ret;
+		tokens.consume();
+		auto exponent = ParseAtom(tokens);
+		ret = std::make_unique<BinaryExprAST>('^', std::move(ret), std::move(exponent));
+	}
+	return ret;
 }
 
-// std::unique_ptr<ExprAST> ParseRadical(Tokenizer& tokens)
-// {
-// }
 
 std::unique_ptr<ExprAST> ParseExpression(Tokenizer&);
 std::unique_ptr<ExprAST> ParseAtom(Tokenizer& tokens)
@@ -214,24 +202,27 @@ std::unique_ptr<ExprAST> ParseAtom(Tokenizer& tokens)
     // check for number
     if (std::isdigit(tokens.peek()[0]))
     {
-	const auto number = tokens.consume();
-	return std::make_unique<NumberExprAST>(std::stoi(number));
+		const auto number = tokens.consume();
+		return std::make_unique<NumberExprAST>(std::stod(number));
     } else if (tokens.peek() == "(") {
-	auto openp = tokens.consume();
-	if (openp != "(")
-	    std::cout << "error: expected '(' but got " << openp << std::endl;
-	auto ret =  ParseExpression(tokens);
-	auto closingp = tokens.consume();
-	if (closingp != ")")
-	    std::cout << "error: expected ')' but got " << closingp << std::endl;
-	return ret;
+		tokens.expect("(");
+		auto ret =  ParseExpression(tokens);
+		tokens.expect(")");
+		return ret;
     } else if (tokens.peek() == "x")
     {
-	const char var = tokens.consume()[0];
-	return std::make_unique<VariableExprAST>(var);
-    } else {
-	return nullptr;
-    }
+		const char var = tokens.consume()[0];
+		return std::make_unique<VariableExprAST>(var);
+    } else if (tokens.peek() == "sin")
+    {
+		tokens.consume();
+		tokens.expect("(");
+		auto arg = ParseExpression(tokens);
+		tokens.expect(")");
+		return std::make_unique<FunctionExprAST>("sin", std::move(arg));
+   } else {
+   		return nullptr;
+   }
 }
 
 std::unique_ptr<ExprAST> ParseTerm(Tokenizer& tokens)
