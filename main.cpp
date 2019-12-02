@@ -16,7 +16,7 @@ class Tokenizer
 	    std::istringstream tokenStream(s);
 	    while (std::getline(tokenStream, token, delimiter))
 	    {
-		tokens.push_back(token);
+			tokens.push_back(token);
 	    }
 	    return tokens;
 	}
@@ -278,8 +278,14 @@ int main(int argc, char* argv[])
     std::getline(std::cin, input);
     Tokenizer tokens(input);
     auto res = ParseExpression(tokens);
+	if (!res)
+	{
+		std::cout << "ParseExpression error" << std::endl;
+		return 0;
+	}
     res->walk();
-    std::cout << std::endl << res->evaluate(1.0) << std::endl;
+
+    std::cout << "\nEvaluated at x = 1: " << std::endl << res->evaluate(1.0) << std::endl;
     double x = 0;
     for (; x<2.0; x+= 0.01)
 	res->evaluate(x);
